@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transaction-deployment
+
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: transaction
+
+  template:
+    metadata:
+      labels:
+        app: transaction
+
+    spec:
+      containers:
+      - name: transaction
+        image: manjunath1007/transaction

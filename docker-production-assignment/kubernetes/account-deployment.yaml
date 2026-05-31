@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: account-deployment
+
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: account
+
+  template:
+    metadata:
+      labels:
+        app: account
+
+    spec:
+      containers:
+      - name: account
+        image: manjunath1007/account
+        ports:
+        - containerPort: 3000
