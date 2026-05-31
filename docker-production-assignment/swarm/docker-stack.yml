@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+
+  account:
+    image: manjunath1007/account
+    ports:
+      - "3000:3000"
+    deploy:
+      replicas: 1
+
+  transaction:
+    image: manjunath1007/transaction
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+
+  notification:
+    image: manjunath1007/notification
+    ports:
+      - "5000:5000"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+networks:
+  default:
+    driver: overlay
+
