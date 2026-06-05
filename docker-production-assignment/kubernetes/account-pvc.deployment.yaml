@@ -21,8 +21,12 @@ spec:
         ports:
         - containerPort: 3000
 
-        resources:
-          requests:
-            cpu: "100m"
-          limits:
-            cpu: "200m"
+        volumeMounts:
+        - mountPath: /app/data
+          name: account-storage
+
+      volumes:
+      - name: account-storage
+        persistentVolumeClaim:
+          claimName: account-pvc
+
