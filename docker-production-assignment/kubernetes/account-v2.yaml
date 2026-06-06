@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: account-deployment
+  name: account-v2
 
 spec:
   replicas: 2
@@ -13,6 +13,7 @@ spec:
     metadata:
       labels:
         app: account
+        version: v2  
       annotations:
         sidecar.istio.io/inject: "true"    
     spec:
