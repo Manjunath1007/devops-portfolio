@@ -1,0 +1,77 @@
+pipeline {
+    agent any
+
+    environment {
+        APP_NAME = "account-service"
+        IMAGE = "account-service:${BUILD_NUMBER}"
+        DEPLOYMENT = "account-deployment"
+    }
+
+    stages {
+
+        stage('Checkout Code') {
+            steps {
+                echo "Cloning repository..."
+                git branch: 'main', url: 'https://github.com/Manjunath1007/devops-portfolio.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                echo "Building Docker image..."
+                sh "docker build -t ${IMAGE} ."
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                echo "Deploying application..."
+                sh "kubectl apply -f assignment-2-production-recovery/kubernetes/"
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                echo "Checking deployment status..."
+                sh "kubectl rollout status deployment/${DEPLOYMENT} --timeout=60s"
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                echo "Running health check..."
+                script {
+                    def status = sh(
+                        script: "curl -f http://10.128.0.5:32109 || exit 1",
+                        returnStatus: true
+                    )
+
+                    if (status != 0) {
+                        error "Application health check failed ❌"
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+
+        success {
+            echo "✅ Deployment Successful"
+        }
+
+        failure {
+            echo "❌ Deployment Failed — Rolling back..."
+
+            sh "kubectl rollout undo deployment/${DEPLOYMENT}"
+
+            echo "✅ Rollback completed"
+        }
+
+        always {
+            echo "Cleaning up workspace..."
+            cleanWs()
+        }
+    }
+}
+
