@@ -14,6 +14,7 @@ spec:
     spec:
       containers:
       - name: account
-        image: account-service:3
+        image: account-service:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 3000
