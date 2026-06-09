@@ -1,17 +1,14 @@
 pipeline {
     agent any
 
-    environment {
-        APP_NAME = "account-service"
-        IMAGE = "account-service:${BUILD_NUMBER}"
-        DEPLOYMENT = "account-deployment"
+    options {
+        timeout(time: 15, unit: 'MINUTES')
     }
 
     stages {
 
         stage('Checkout Code') {
             steps {
-                echo "Cloning repository..."
                 git branch: 'main', url: 'https://github.com/Manjunath1007/devops-portfolio.git'
             }
         }
@@ -22,34 +19,42 @@ pipeline {
                 sh "ls -R"
             }
         }
-        
+
         stage('Build Docker Image') {
             steps {
-                echo "Building Docker image..."
                 sh "docker build -t account-service:latest assignment-2-production-recovery/"
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        // ✅ Deploy stable version (v1)
+        stage('Deploy v1') {
             steps {
-                echo "Deploying application..."
-                sh "kubectl apply -f assignment-2-production-recovery/kubernetes/"
+                sh "kubectl apply -f assignment-2-production-recovery/kubernetes/deployment.yaml"
+                sh "kubectl apply -f assignment-2-production-recovery/kubernetes/service.yaml"
+            }
+        }
+
+        // ✅ Deploy canary version (v2)
+        stage('Deploy v2 Canary') {
+            steps {
+                sh "kubectl apply -f assignment-2-production-recovery/kubernetes/deployment-v2.yaml"
             }
         }
 
         stage('Verify Deployment') {
             steps {
-                echo "Checking deployment status..."
-                sh "kubectl rollout status deployment/${DEPLOYMENT} --timeout=60s"
+                sh "kubectl rollout status deployment/account-deployment --timeout=60s"
+                sh "kubectl rollout status deployment/account-deployment-v2 --timeout=60s"
             }
         }
 
+        // ✅ Health validation
         stage('Health Check') {
             steps {
                 script {
                     retry(5) {
                         sh '''
-                        echo "Waiting for app to stabilize..."
+                        echo "Checking application health..."
                         sleep 5
                         kubectl run test --rm -i --restart=Never \
                         --image=curlimages/curl -- curl -f account-service
@@ -58,21 +63,34 @@ pipeline {
                 }
             }
         }
+
+        // ✅ Optional: promote canary (increase traffic)
+        stage('Promote Canary') {
+            steps {
+                sh "kubectl scale deployment account-deployment-v2 --replicas=3"
+            }
+        }
     }
 
+    // ✅ FINAL DECISION LOGIC
     post {
+
         success {
-            echo "✅ Deployment Successful"
+            echo "✅ Deployment Successful — Canary promoted"
         }
 
         failure {
             echo "❌ Deployment Failed — Rolling back..."
-            sh "kubectl rollout undo deployment/${DEPLOYMENT} || true"
-            echo "✅ Rollback attempted"
+
+            sh '''
+            kubectl rollout undo deployment/account-deployment || true
+            kubectl delete deployment account-deployment-v2 --ignore-not-found
+            '''
+
+            echo "✅ Rollback Completed"
         }
 
         always {
-            echo "Cleaning up workspace..."
             cleanWs()
         }
     }

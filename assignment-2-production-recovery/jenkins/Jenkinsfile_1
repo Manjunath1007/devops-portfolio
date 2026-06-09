@@ -1,0 +1,80 @@
+pipeline {
+    agent any
+
+    environment {
+        APP_NAME = "account-service"
+        IMAGE = "account-service:${BUILD_NUMBER}"
+        DEPLOYMENT = "account-deployment"
+    }
+
+    stages {
+
+        stage('Checkout Code') {
+            steps {
+                echo "Cloning repository..."
+                git branch: 'main', url: 'https://github.com/Manjunath1007/devops-portfolio.git'
+            }
+        }
+
+        stage('Debug Workspace') {
+            steps {
+                sh "pwd"
+                sh "ls -R"
+            }
+        }
+        
+        stage('Build Docker Image') {
+            steps {
+                echo "Building Docker image..."
+                sh "docker build -t account-service:latest assignment-2-production-recovery/"
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                echo "Deploying application..."
+                sh "kubectl apply -f assignment-2-production-recovery/kubernetes/"
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                echo "Checking deployment status..."
+                sh "kubectl rollout status deployment/${DEPLOYMENT} --timeout=60s"
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                script {
+                    retry(5) {
+                        sh '''
+                        echo "Waiting for app to stabilize..."
+                        sleep 5
+                        kubectl run test --rm -i --restart=Never \
+                        --image=curlimages/curl -- curl -f account-service
+                        '''
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Deployment Successful"
+        }
+
+        failure {
+            echo "❌ Deployment Failed — Rolling back..."
+            sh "kubectl rollout undo deployment/${DEPLOYMENT} || true"
+            echo "✅ Rollback attempted"
+        }
+
+        always {
+            echo "Cleaning up workspace..."
+            cleanWs()
+        }
+    }
+}
+
